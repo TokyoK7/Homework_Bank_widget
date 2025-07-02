@@ -1,16 +1,16 @@
-from typing import Any
+from typing import Any, List, Dict
 
 
-def filter_by_state(data: list[dict[str, Any]], user_state: str) -> list[dict[Any, Any]]:
+def filter_by_state(data: List[Dict[str, Any]], state: str) -> List[Dict[str, Any]]:
     """Функция, которая фильтрует список словарей по указанному ключу"""
-    sorted_list = []
-    for i in data:
-        if i.get("state", "") == user_state:
-            sorted_list.append(i)
+    sorted_list: List[Dict[str, Any]] = []
+    for item in data:
+        if item.get("state", "") == state:
+            sorted_list.append(item)
     return sorted_list
 
 
-def sort_by_date(data: list[dict[str, Any]], descending: bool = True) -> list[dict[str, Any]]:
+def sort_by_date(data: List[Dict[str, Any]], descending: bool = True) -> List[Dict[str, Any]]:
     """Функция сортировки списка банковских операций по дате (по умолчанию - убывание)"""
-    sorted_list = sorted(data, key=lambda x: x["date"], reverse=descending)
+    sorted_list: List[Dict[str, Any]] = sorted(data, key=lambda x: x["date"], reverse=descending)
     return sorted_list
