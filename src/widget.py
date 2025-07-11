@@ -3,14 +3,20 @@ from src.masks import get_mask_account, get_mask_card_number
 
 def mask_account_card(user_card: str) -> str:
     """Функция маскировки карты или счета."""
-    if len(user_card) <= 0:
+    if not user_card.strip():
         raise ValueError("Ошибка ввода! Пожалуйста введите корректный номер карты или счета.")
-    elif "Счет" in user_card:
-        mask_acc_numb = f"{user_card[:4]} {get_mask_account(user_card[5:])}"
-        return mask_acc_numb
+
+    if "Счет" in user_card:
+        # Для счетов: "Счет 73654108430135874305" -> "Счет **4305"
+        account_number = user_card[5:]  # Берем все после "Счет "
+        masked_account = get_mask_account(account_number)
+        return f"Счет {masked_account}"
     else:
-        mask_card_numb = f"{user_card[:-16]}{get_mask_card_number(user_card[-16:])}"
-        return mask_card_numb
+        # Для карт: "Visa Classic 6831982476737658" -> "Visa Classic 6831 98** **** 7658"
+        card_name = user_card[:-16].strip()  # Название карты (может быть несколько слов)
+        card_number = user_card[-16:]  # Последние 16 цифр
+        masked_number = get_mask_card_number(card_number)
+        return f"{card_name} {masked_number}"
 
 
 def get_date(date_of_operation: str) -> str:
