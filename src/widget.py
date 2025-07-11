@@ -2,7 +2,7 @@ from src.masks import get_mask_account, get_mask_card_number
 
 
 def mask_account_card(user_card: str) -> str:
-    """Функция маскировки карты или счета"""
+    """Функция маскировки карты или счета."""
     if len(user_card) <= 0:
         raise ValueError("Ошибка ввода! Пожалуйста введите корректный номер карты или счета.")
     elif "Счет" in user_card:
@@ -13,10 +13,6 @@ def mask_account_card(user_card: str) -> str:
         return mask_card_numb
 
 
-    def get_date(date_of_operation: str) -> str:
-        """Функция, которая возвращает строку в датой в формате ДД.ММ.ГГГГ"""
-
-        return date_of_operation[8:10] + "." + date_of_operation[5:7] + "." + date_of_operation[0:4]
-
-
-    print(get_date("2024-03-11T02:26:18.671407"))
+def get_date(date_of_operation: str) -> str:
+    """Функция, которая возвращает строку с датой в формате ДД.ММ.ГГГГ."""
+    return f"{date_of_operation[8:10]}.{date_of_operation[5:7]}.{date_of_operation[:4]}"
