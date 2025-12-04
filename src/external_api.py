@@ -1,41 +1,35 @@
 import os
-from typing import Any
-
 import requests
 from dotenv import load_dotenv
 
-
-def get_transaction_amount(transaction: dict) -> float:
-    """Получает данные о транзакции и возвращает сумму в рублях"""
-
-    if len(transaction) == 0 or type(transaction) is not dict:
-        print("Ошибка ввода данных!")
-        return 0.0
-    elif len(transaction) > 0:
-        if transaction["operationAmount"]["currency"]["code"] == "RUB":
-            return float(transaction["operationAmount"]["amount"])
-        else:
-            currency_code = transaction["operationAmount"]["currency"]["code"]
-            amount_transaction = transaction["operationAmount"]["amount"]
-            amount_convert = convert_amount(currency_code, amount_transaction)
-            return amount_convert
+load_dotenv()  # Загружаем переменные окружения из .env файла
 
 
-def convert_amount(currency_code: str, amount: str) -> Any:
-    """Конвертирует транзакции и возвращает сумму в рублях"""
+def convert_to_rub(transaction: dict) -> float:
+    """Конвертирует сумму транзакции в рубли.
 
-    try:
-        url = f"https://api.apilayer.com/exchangerates_data/convert?to=RUB&from={currency_code}&amount={amount}"
-        load_dotenv()
-        api_key = os.getenv("API_KEY")
-        headers = {"apikey": api_key}
+    Args:
+        transaction (dict): Словарь с данными о транзакции, содержащий
+                            'amount' и 'currency'.
 
-        response = requests.get(url, headers=headers)
-        if response.status_code != 200:
-            return f"Ошибка запроса. Возможная причина: {response.reason}"
-        else:
-            result = round(response.json()["result"], 2)
-            return result
+    Returns:
+        float: Сумма транзакции в рублях.
+    """
+    amount = transaction['amount']  # Получаем сумму транзакции
+    currency = transaction['currency']  # Получаем валюту транзакции
 
-    except requests.exceptions.RequestException:
-        print("Произошла ошибка. Пожалуйста, повторите попытку позже.")
+    if currency == 'RUB':
+        return float(amount)  # Если валюта уже в рублях, возвращаем сумму
+
+    # Формируем URL для API, чтобы конвертировать валюту
+    url = f"https://api.apilayer.com/exchangerates_data/convert?to=RUB&from={currency}&amount={amount}"
+    headers = {
+        "apikey": os.getenv("API_KEY")  # Получаем API ключ из переменных окружения
+    }
+
+    response = requests.get(url, headers=headers)  # Запрос к API
+
+    if response.status_code == 200:  # Если запрос успешен
+        return float(response.json()['result'])  # Возвращаем результат конвертации
+    else:
+        return float(amount)  # Если API не сработал, возвращаем сумму без изменений
