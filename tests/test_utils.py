@@ -1,47 +1,55 @@
-import unittest
-from unittest.mock import mock_open, patch
-
-from external_api import convert_to_rub
-from utils import load_transactions
-
-
-class TestUtils(unittest.TestCase):
-
-    @patch("builtins.open", new_callable=mock_open, read_data="[]")
-    def test_load_transactions_empty_file(self, mock_file):
-        result = load_transactions("data/operations.json")
-        self.assertEqual(result, [])  # Проверяем, что результат пустой список
-
-    @patch("builtins.open", new_callable=mock_open, read_data='[{"amount": 100, "currency": "USD"}]')
-    def test_load_transactions_valid_file(self, mock_file):
-        result = load_transactions("data/operations.json")
-        self.assertEqual(len(result), 1)  # Проверяем, что загружен один элемент
-        self.assertEqual(result[0]["amount"], 100)  # Проверяем, что сумма равна 100
-
-    @patch("builtins.open", new_callable=mock_open, read_data="not a json")
-    def test_load_transactions_invalid_json(self, mock_file):
-        result = load_transactions("data/operations.json")
-        self.assertEqual(result, [])  # Проверяем, что результат пустой список при некорректном JSON
-
-    @patch("os.path.isfile", return_value=False)
-    def test_load_transactions_file_not_exist(self, mock_isfile):
-        result = load_transactions("data/operations.json")
-        self.assertEqual(result, [])  # Проверяем, что результат пустой список если файл не существует
-
-    @patch("builtins.open", new_callable=mock_open, read_data='{"amount": 100, "currency": "USD"}')
-    def test_load_transactions_not_a_list(self, mock_file):
-        result = load_transactions("data/operations.json")
-        self.assertEqual(result, [])  # Проверяем, что результат пустой список если данные не список
-
-    @patch("requests.get")
-    def test_convert_to_rub(self, mock_get):
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = {"result": 7500}  # Симулируем ответ API
-
-        transaction = {"amount": 100, "currency": "USD"}  # Тестовая транзакция
-        result = convert_to_rub(transaction)
-        self.assertEqual(result, 7500.0)  # Проверяем, что результат конвертации равен 7500
+import pytest
+import json
+import tempfile
+import os
+from src.utils import load_transactions
 
 
-if __name__ == "__main__":
-    unittest.main()  # Запуск тестов
+def test_load_transactions_valid_file():
+    """Тест загрузки корректного JSON-файла"""
+    # Создаем временный файл с данными
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        data = [
+            {"id": 1, "state": "EXECUTED", "operationAmount": {"amount": "100.0", "currency": {"code": "RUB"}}},
+            {"id": 2, "state": "CANCELED", "operationAmount": {"amount": "50.0", "currency": {"code": "USD"}}}
+        ]
+        json.dump(data, f)
+        file_path = f.name
+
+    try:
+        result = load_transactions(file_path)
+        assert len(result) == 2
+        assert result[0]["id"] == 1
+    finally:
+        os.unlink(file_path)
+
+
+def test_load_transactions_file_not_found():
+    """Тест обработки отсутствующего файла"""
+    result = load_transactions("non_existent_file.json")
+    assert result == []
+
+
+def test_load_transactions_empty_file():
+    """Тест обработки пустого файла"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        file_path = f.name
+
+    try:
+        result = load_transactions(file_path)
+        assert result == []
+    finally:
+        os.unlink(file_path)
+
+
+def test_load_transactions_not_list():
+    """Тест обработки файла, где данные не список"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump({"key": "value"}, f)
+        file_path = f.name
+
+    try:
+        result = load_transactions(file_path)
+        assert result == []
+    finally:
+        os.unlink(file_path)

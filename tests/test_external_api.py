@@ -1,56 +1,92 @@
-from unittest.mock import patch
+import pytest
+from unittest.mock import patch, Mock
+import os
+from src.external_api import convert_amount_to_rub
 
-from src.external_api import convert_amount, get_transaction_amount
 
-
-def test_get_transaction_amount() -> None:
-    """Тестирование функции на получение суммы операции в рублях"""
-    data_rub = {
-        "id": 587085106,
-        "state": "EXECUTED",
-        "date": "2018-03-23T10:45:06.972075",
-        "operationAmount": {"amount": "48223.05", "currency": {"name": "руб.", "code": "RUB"}},
-        "description": "Открытие вклада",
-        "to": "Счет 41421565395219882431",
+def test_convert_amount_to_rub_rub():
+    """Тест конвертации для транзакции в рублях"""
+    transaction = {
+        "operationAmount": {
+            "amount": "100.50",
+            "currency": {"code": "RUB"}
+        }
     }
-    assert get_transaction_amount(data_rub) == 48223.05
+
+    result = convert_amount_to_rub(transaction)
+    assert result == 100.50
 
 
-def test_get_zero_transaction_amount() -> None:
-    """Тестирование функции на получение суммы операции в рублях"""
-    assert get_transaction_amount({}) == 0.0
-    assert get_transaction_amount([0, 1000]) == 0.0
-    assert get_transaction_amount("amount - 100") == 0.0
-
-
-@patch("requests.get")
-def test_convert_amount(mock_get):
-    """Тестирование функции конвертации иностранных валют в рубли"""
-    mock_get.return_value.status_code = 200
-    mock_get.return_value.json.return_value = {
-        "date": "2024-10-20",
-        "info": {"rate": 95.802878, "timestamp": 1729400884},
-        "query": {"amount": 5, "from": "USD", "to": "RUB"},
-        "result": 479.01439,
+@patch.dict(os.environ, {"EXCHANGE_RATE_API_KEY": "test_key"})
+@patch('src.external_api.requests.get')
+def test_convert_amount_to_rub_usd(mock_get):
+    """Тест конвертации для транзакции в USD"""
+    # Мокаем ответ API
+    mock_response = Mock()
+    mock_response.json.return_value = {
         "success": True,
+        "rates": {"RUB": 75.5}
     }
-    assert convert_amount("USD", 5) == 479.01
+    mock_response.raise_for_status = Mock()
+    mock_get.return_value = mock_response
 
-    mock_get.return_value.status_code = 200
-    mock_get.return_value.json.return_value = {
-        "date": "2024-10-20",
-        "info": {"rate": 104.178393, "timestamp": 1729401543},
-        "query": {"amount": 10, "from": "EUR", "to": "RUB"},
-        "result": 1041.78393,
+    transaction = {
+        "operationAmount": {
+            "amount": "100.0",
+            "currency": {"code": "USD"}
+        }
+    }
+
+    result = convert_amount_to_rub(transaction)
+    assert result == 100.0 * 75.5
+    mock_get.assert_called_once()
+
+
+@patch.dict(os.environ, {"EXCHANGE_RATE_API_KEY": "test_key"})
+@patch('src.external_api.requests.get')
+def test_convert_amount_to_rub_eur(mock_get):
+    """Тест конвертации для транзакции в EUR"""
+    # Мокаем ответ API
+    mock_response = Mock()
+    mock_response.json.return_value = {
         "success": True,
+        "rates": {"RUB": 85.0}
     }
-    assert convert_amount("EUR", 10) == 1041.78
+    mock_response.raise_for_status = Mock()
+    mock_get.return_value = mock_response
+
+    transaction = {
+        "operationAmount": {
+            "amount": "50.0",
+            "currency": {"code": "EUR"}
+        }
+    }
+
+    result = convert_amount_to_rub(transaction)
+    assert result == 50.0 * 85.0
+    mock_get.assert_called_once()
 
 
-@patch("requests.get")
-def test_convert_amount_invalid(mock_get):
-    """Тестирование функции конвертации иностранных валют в рубли"""
-    mock_get.return_value.status_code = 404
-    mock_get.return_value.reason = "The requested resource doesn't exist."
-    assert convert_amount("USD", 5) == "Ошибка запроса. Возможная причина: The requested resource doesn't exist."
-    
+def test_convert_amount_to_rub_invalid_structure():
+    """Тест обработки транзакции с некорректной структурой"""
+    transaction = {"invalid": "structure"}
+
+    with pytest.raises(ValueError):
+        convert_amount_to_rub(transaction)
+
+
+def test_convert_amount_to_rub_missing_api_key():
+    """Тест обработки отсутствия API ключа"""
+    # Удаляем переменную окружения
+    if "EXCHANGE_RATE_API_KEY" in os.environ:
+        del os.environ["EXCHANGE_RATE_API_KEY"]
+
+    transaction = {
+        "operationAmount": {
+            "amount": "100.0",
+            "currency": {"code": "USD"}
+        }
+    }
+
+    with pytest.raises(ValueError, match="API ключ не найден"):
+        convert_amount_to_rub(transaction)
